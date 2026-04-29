@@ -72,7 +72,7 @@ func _spawn_enemy() -> void:
 	var enemy = ENEMY_SCENE.instantiate()
 	var vp    := get_viewport_rect().size
 	var side  := randi() % 4
-	var spawn_pos := [
+	var spawn_pos: Vector2 = [
 		Vector2(randf_range(0.0, vp.x), -50.0),
 		Vector2(randf_range(0.0, vp.x), vp.y + 50.0),
 		Vector2(-50.0, randf_range(0.0, vp.y)),
