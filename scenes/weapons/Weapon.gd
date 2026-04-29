@@ -8,7 +8,7 @@ func _process(delta: float) -> void:
 	fire_timer -= delta
 	if fire_timer <= 0.0:
 		_shoot()
-		fire_timer = 1.0 / GameState.stats.fire_rate
+		fire_timer = 1.0 / float(GameState.stats.fire_rate)
 
 func _shoot() -> void:
 	var target := _nearest_enemy()
@@ -19,8 +19,8 @@ func _shoot() -> void:
 	bullet.global_position = global_position
 	bullet.setup(
 		(target.global_position - global_position).normalized(),
-		GameState.stats.bullet_speed,
-		GameState.stats.damage
+		float(GameState.stats.bullet_speed),
+		int(GameState.stats.damage)
 	)
 
 func _nearest_enemy() -> Node2D:

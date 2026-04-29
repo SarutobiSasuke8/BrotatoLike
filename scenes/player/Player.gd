@@ -9,7 +9,7 @@ var flash_timer := 0.0
 
 func _ready() -> void:
 	add_to_group("player")
-	health = GameState.stats.max_health
+	health = int(GameState.stats.max_health)
 	var weapon := WEAPON_SCENE.instantiate()
 	add_child(weapon)
 
@@ -18,7 +18,7 @@ func _physics_process(delta: float) -> void:
 		Input.get_axis("ui_left", "ui_right"),
 		Input.get_axis("ui_up", "ui_down")
 	)
-	velocity = dir.normalized() * GameState.stats.speed if dir != Vector2.ZERO else Vector2.ZERO
+	velocity = dir.normalized() * float(GameState.stats.speed) if dir != Vector2.ZERO else Vector2.ZERO
 	move_and_slide()
 
 	var vp := get_viewport_rect().size
@@ -39,9 +39,9 @@ func _draw() -> void:
 	draw_circle(Vector2(6, -5), 2.0, Color.BLACK)
 
 func take_damage(amount: int) -> void:
-	var actual := max(1, amount - GameState.stats.armor)
+	var actual: int = max(1, amount - int(GameState.stats.armor))
 	health -= actual
-	GameState.emit_signal("health_changed", health, GameState.stats.max_health)
+	GameState.emit_signal("health_changed", health, int(GameState.stats.max_health))
 	flash_timer = 0.15
 	queue_redraw()
 	if health <= 0:
