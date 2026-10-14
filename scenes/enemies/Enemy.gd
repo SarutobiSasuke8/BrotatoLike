@@ -12,29 +12,23 @@ var player: Node2D = null
 var contact_timer := 0.0
 const CONTACT_RATE := 0.5
 
+const EnemyScaling = preload("res://scripts/logic/EnemyScaling.gd")
+
 func setup_type(type: String, wave: int) -> void:
-	var hp_scale := 1.0 + wave * 0.15
-	var dmg_scale := 1.0 + wave * 0.10
+	var base := {"speed": speed, "health": health, "damage": damage, "xp_value": xp_value, "gold_value": gold_value}
+	var s := EnemyScaling.stats_for(type, wave, base)
+	speed = s.speed
+	health = s.health
+	damage = s.damage
+	xp_value = s.xp_value
+	gold_value = s.gold_value
 	match type:
 		"speeder":
-			speed = 160.0
-			health = int(15 * hp_scale)
-			damage = int(8 * dmg_scale)
-			xp_value = 3
-			gold_value = 1
 			body_color = Color(0.95, 0.55, 0.10)
 			body_radius = 10.0
 		"tank":
-			speed = 45.0
-			health = int(80 * hp_scale)
-			damage = int(20 * dmg_scale)
-			xp_value = 15
-			gold_value = 5
 			body_color = Color(0.45, 0.10, 0.70)
 			body_radius = 20.0
-		_:
-			health = int(health * hp_scale)
-			damage = int(damage * dmg_scale)
 	var shape_node := get_node_or_null("CollisionShape2D")
 	if shape_node and shape_node.shape is CircleShape2D:
 		shape_node.shape = shape_node.shape.duplicate()

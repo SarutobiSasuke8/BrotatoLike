@@ -2,9 +2,8 @@ extends Node2D
 
 const PLAYER_SCENE = preload("res://scenes/player/Player.tscn")
 const ENEMY_SCENE  = preload("res://scenes/enemies/Enemy.tscn")
-
-const WAVE_DURATION      := 60.0
-const BASE_SPAWN_INTERVAL := 2.0
+const WaveRules    = preload("res://scripts/logic/WaveRules.gd")
+const ShopRules    = preload("res://scripts/logic/ShopRules.gd")
 
 var player: Node2D = null
 var wave_timer  := 0.0
@@ -42,21 +41,21 @@ func _process(delta: float) -> void:
 	wave_timer  -= delta
 	spawn_timer -= delta
 
-	hud_timer.text = "⏱ %d" % max(0, ceili(wave_timer))
+	hud_timer.text = "⏱ %d" % WaveRules.display_seconds(wave_timer)
 
 	if spawn_timer <= 0.0:
 		_spawn_enemy()
-		spawn_timer = max(0.3, BASE_SPAWN_INTERVAL - GameState.wave * 0.1)
+		spawn_timer = WaveRules.spawn_interval(GameState.wave)
 
-	if wave_timer <= 0.0:
+	if WaveRules.is_wave_over(wave_timer):
 		_end_wave()
 
 # ── Wave flow ────────────────────────────────────────────────────────────────
 
 func _start_wave() -> void:
 	in_shop = false
-	wave_timer  = WAVE_DURATION
-	spawn_timer = 1.5
+	wave_timer  = WaveRules.WAVE_DURATION
+	spawn_timer = WaveRules.FIRST_SPAWN_DELAY
 	hud_wave.text = "Wave %d" % GameState.wave
 
 func _end_wave() -> void:
@@ -81,12 +80,7 @@ func _spawn_enemy() -> void:
 	enemy.global_position = spawn_pos
 	add_child(enemy)
 
-	var roll := randf()
-	var type := "normal"
-	if roll < 0.25:
-		type = "speeder"
-	elif roll < 0.40:
-		type = "tank"
+	var type := WaveRules.enemy_type_for_roll(randf())
 	enemy.setup_type(type, GameState.wave)
 
 # ── Shop ─────────────────────────────────────────────────────────────────────
@@ -136,15 +130,13 @@ func _open_shop() -> void:
 
 	inner.add_child(HSeparator.new())
 
-	var pool := GameState.UPGRADES.duplicate()
-	pool.shuffle()
-	var offers := pool.slice(0, min(3, pool.size()))
+	var offers := ShopRules.roll_offers(GameState.UPGRADES)
 
 	for upgrade in offers:
 		var btn := Button.new()
 		btn.text = "%s   [%d gold]" % [upgrade.label, upgrade.cost]
 		btn.add_theme_font_size_override("font_size", 17)
-		btn.disabled = GameState.gold < upgrade.cost
+		btn.disabled = not ShopRules.can_afford(GameState.gold, upgrade)
 		_shop_items.append({"btn": btn, "upgrade": upgrade})
 		inner.add_child(btn)
 
@@ -165,9 +157,10 @@ func _open_shop() -> void:
 
 func _purchase_upgrade(item: Dictionary, gold_label: Label) -> void:
 	var upgrade: Dictionary = item.upgrade
-	if GameState.gold < upgrade.cost:
+	var remaining := ShopRules.gold_after_purchase(GameState.gold, upgrade)
+	if remaining < 0:
 		return
-	GameState.gold -= upgrade.cost
+	GameState.gold = remaining
 	GameState.apply_upgrade(upgrade)
 	_on_gold_changed(GameState.gold)
 	gold_label.text = "Gold: %d" % GameState.gold
@@ -182,7 +175,7 @@ func _purchase_upgrade(item: Dictionary, gold_label: Label) -> void:
 
 	for other in _shop_items:
 		if not other.btn.disabled:
-			other.btn.disabled = GameState.gold < other.upgrade.cost
+			other.btn.disabled = not ShopRules.can_afford(GameState.gold, other.upgrade)
 
 func _close_shop() -> void:
 	if shop_layer:

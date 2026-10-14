@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Import and boot (Godot 4.6.3)
+    name: Import, boot and test (Godot 4.6.3)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -57,5 +57,25 @@ jobs:
           fi
           if [ "$boot_status" -ne 0 ]; then
             echo "Godot boot exited ${boot_status}."
+            exit 1
+          fi
+
+      - name: Run logic unit tests (headless)
+        run: |
+          set -eu
+          log_dir="${RUNNER_TEMP:-/tmp}/godot-ci"
+          mkdir -p "$log_dir"
+
+          set +e
+          godot --headless --path . --script res://tests/run_tests.gd >"$log_dir/tests.log" 2>&1
+          test_status=$?
+          set -e
+          cat "$log_dir/tests.log"
+          if grep -E 'SCRIPT ERROR|Failed to load script|Parse Error|Compile Error' "$log_dir/tests.log"; then
+            echo "Godot test run reported a script error."
+            exit 1
+          fi
+          if [ "$test_status" -ne 0 ]; then
+            echo "Logic tests failed (exit ${test_status})."
             exit 1
           fi
