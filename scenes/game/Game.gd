@@ -4,13 +4,17 @@ const PLAYER_SCENE = preload("res://scenes/player/Player.tscn")
 const ENEMY_SCENE  = preload("res://scenes/enemies/Enemy.tscn")
 const WaveRules    = preload("res://scripts/logic/WaveRules.gd")
 const ShopRules    = preload("res://scripts/logic/ShopRules.gd")
+const LevelUpRules = preload("res://scripts/logic/LevelUpRules.gd")
 
 var player: Node2D = null
 var wave_timer  := 0.0
 var spawn_timer := 0.0
 var in_shop     := false
+var game_over   := false
 var shop_layer: CanvasLayer = null
 var _shop_items: Array = []  # [{btn, upgrade}]
+var level_up_layer: CanvasLayer = null
+var _pending_levels: Array[int] = []
 
 var hud_health: Label
 var hud_wave:   Label
@@ -21,6 +25,7 @@ var hud_xp_bar: ProgressBar
 
 func _ready() -> void:
 	GameState.reset()
+	get_tree().paused = false
 	_setup_background()
 	_setup_hud()
 
@@ -32,6 +37,8 @@ func _ready() -> void:
 	GameState.health_changed.connect(_on_health_changed)
 	GameState.gold_changed.connect(_on_gold_changed)
 	GameState.xp_changed.connect(_on_xp_changed)
+	if LevelUpRules.is_enabled():
+		GameState.leveled_up.connect(_on_leveled_up)
 
 	_start_wave()
 
@@ -183,11 +190,96 @@ func _close_shop() -> void:
 		shop_layer = null
 	_shop_items = []
 	_start_wave()
+	_maybe_open_level_up()
+
+# ── Level-up choice ──────────────────────────────────────────────────────────
+# Pick 1 of 3 free upgrades from the shop pool on each level-up. Controlled by the
+# project setting brotatolike/gameplay/level_up_choice (default on).
+
+func _on_leveled_up(new_level: int) -> void:
+	_pending_levels.append(new_level)
+	# Deferred: level-ups fire from inside physics callbacks (an enemy dying).
+	call_deferred("_maybe_open_level_up")
+
+func _maybe_open_level_up() -> void:
+	if game_over or in_shop or level_up_layer != null or _pending_levels.is_empty():
+		return
+	_open_level_up(_pending_levels.pop_front())
+
+func _open_level_up(level: int) -> void:
+	get_tree().paused = true
+
+	level_up_layer = CanvasLayer.new()
+	level_up_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(level_up_layer)
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.0, 0.0, 0.0, 0.70)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	level_up_layer.add_child(bg)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	level_up_layer.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(460, 0)
+	center.add_child(panel)
+
+	var margin := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 28)
+	panel.add_child(margin)
+
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 14)
+	margin.add_child(inner)
+
+	var title := Label.new()
+	title.text = "LEVEL UP!  Level %d" % level
+	title.add_theme_font_size_override("font_size", 26)
+	title.add_theme_color_override("font_color", Color(0.45, 0.95, 0.45))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	inner.add_child(title)
+
+	var hint := Label.new()
+	hint.text = "Choose one free upgrade"
+	hint.add_theme_font_size_override("font_size", 17)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	inner.add_child(hint)
+
+	inner.add_child(HSeparator.new())
+
+	var first_button: Button = null
+	for upgrade in LevelUpRules.roll_choices(GameState.UPGRADES):
+		var btn := Button.new()
+		btn.text = upgrade.label
+		btn.add_theme_font_size_override("font_size", 18)
+		var captured: Dictionary = upgrade
+		btn.pressed.connect(func(): _choose_level_up(captured))
+		inner.add_child(btn)
+		if first_button == null:
+			first_button = btn
+	if first_button:
+		first_button.grab_focus()
+
+func _choose_level_up(upgrade: Dictionary) -> void:
+	GameState.apply_upgrade(upgrade)
+	if upgrade.stat == "max_health" and player and is_instance_valid(player):
+		player.health = min(player.health + upgrade.value, GameState.stats.max_health)
+		GameState.health_changed.emit(player.health, GameState.stats.max_health)
+	if level_up_layer:
+		level_up_layer.queue_free()
+		level_up_layer = null
+	get_tree().paused = false
+	call_deferred("_maybe_open_level_up")
 
 # ── Death ────────────────────────────────────────────────────────────────────
 
 func _on_player_died() -> void:
 	in_shop = true
+	game_over = true
+	_pending_levels.clear()
 	_show_game_over()
 
 func _show_game_over() -> void:

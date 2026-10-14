@@ -20,6 +20,10 @@ config/features=PackedStringArray("4.6", "GL Compatibility")
 
 GameState="*res://scripts/GameState.gd"
 
+[brotatolike]
+
+gameplay/level_up_choice=true
+
 [display]
 
 window/size/viewport_width=1152
