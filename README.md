@@ -82,6 +82,18 @@ the arrow keys, the gamepad D-pad, and the left stick. WASD is not bound.
 Shop and death buttons are ordinary `Button` nodes. The scripts do not call
 `grab_focus()`, so keyboard or gamepad UI focus is not set up for them.
 
+## Accessibility notes
+
+**Input options.** Movement uses `ui_left`, `ui_right`, `ui_up`, and `ui_down` (Godot's built-in actions). Arrow keys and gamepad D-pad/left stick are bound by default. WASD is not bound. The weapon fires automatically; there is no fire button to press. Shop and death-screen buttons require a mouse click: `grab_focus()` is not called anywhere, so keyboard and gamepad navigation of those buttons is not available.
+
+**Colour reliance.** The HP counter in the HUD changes colour as health falls: white above 60%, orange between 30% and 60%, and red below 30% (`scenes/game/Game.gd`). The numeric HP value is always shown alongside the colour change, so the information is not conveyed by colour alone. Enemy types and the player are distinguished by circle size and fill colour; there is no text label or shape variation for enemy type in-game.
+
+**Flashing.** When the player takes damage, the player circle flashes red for 0.15 seconds (`scenes/player/Player.gd`). The flash is brief and confined to the player circle. Players sensitive to flashing effects should be aware of this.
+
+**Text size.** Rendered font sizes: HUD labels 18 px, shop title 26 px, shop upgrade buttons 17 px, death screen title 56 px, death info 21 px. Sizes are set in code and do not scale with operating-system accessibility settings. The engine default font is used throughout.
+
+**Audio.** There is no audio. No sounds or music play at any point.
+
 ## Run
 
 1. Install Godot 4.6. `project.godot` declares the 4.6 feature tag. The
@@ -126,4 +138,4 @@ scripts/GameState.gd       Run stats, XP, gold, and the upgrade pool
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [MIT Licence](LICENSE).
