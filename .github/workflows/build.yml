@@ -1,0 +1,61 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Import and boot (Godot 4.6.3)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2.4.2
+        with:
+          version: 4.6.3
+          use-dotnet: false
+
+      - name: Show Godot version
+        run: godot --version
+
+      - name: Import the project and boot the main scene
+        run: |
+          set -eu
+          log_dir="${RUNNER_TEMP:-/tmp}/godot-ci"
+          mkdir -p "$log_dir"
+
+          set +e
+          godot --headless --path . --import --quit >"$log_dir/import.log" 2>&1
+          import_status=$?
+          set -e
+          cat "$log_dir/import.log"
+          if grep -E 'SCRIPT ERROR|Failed to load script|Parse Error|Compile Error' "$log_dir/import.log"; then
+            echo "Godot import reported a script error."
+            exit 1
+          fi
+          if [ "$import_status" -ne 0 ]; then
+            echo "Godot import exited ${import_status}."
+            exit 1
+          fi
+
+          set +e
+          godot --headless --path . --quit-after 2 >"$log_dir/boot.log" 2>&1
+          boot_status=$?
+          set -e
+          cat "$log_dir/boot.log"
+          if grep -E 'SCRIPT ERROR|Failed to load script|Parse Error|Compile Error' "$log_dir/boot.log"; then
+            echo "Godot boot reported a script error."
+            exit 1
+          fi
+          if [ "$boot_status" -ne 0 ]; then
+            echo "Godot boot exited ${boot_status}."
+            exit 1
+          fi
